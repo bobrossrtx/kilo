@@ -14,6 +14,17 @@
 #define KILO_VERSION "0.0.1"
 #define CTRL_KEY(key) ((key) & 0x1f)
 
+enum editorKey {
+  ARROW_LEFT = 1000,
+  ARROW_RIGHT,
+  ARROW_UP,
+  ARROW_DOWN,
+  HOME_KEY,
+  END_KEY,
+  PAGE_UP,
+  PAGE_DOWN
+};
+
 
 /*** data ***/
 
@@ -50,26 +61,66 @@ void enableRawMode() {
   if (tcgetattr(STDIN_FILENO, &_editorConfig.orig_termios) == -1) die("tcgetattr");
   atexit(disableRawMode); // Resets terminal attributes to normal on exit
 
-  struct termios raw = _editorConfig.orig_termios;                        // Assigning orig_termios -> raw
+  struct termios raw = _editorConfig.orig_termios;          // Assigning orig_termios -> raw
 
   raw.c_iflag &= ~(BRKINT | ICRNL | INPCK | ISTRIP | IXON); // Disabled input flags
   raw.c_oflag &= ~(OPOST);                                  // Disabled output flags
   raw.c_cflag |= (CS8);                                     // bit mask
   raw.c_lflag &= ~(ECHO | ICANON | IEXTEN | ISIG);          // Disabled local flags
   raw.c_cc[VMIN] = 0;
-  raw.c_cc[VTIME] = 1;
+  raw.c_cc[VTIME] = 1;                                      // Refresh rate (tenths (1/10)second)/100 miliseconds
 
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == -1) die("tcsetattr");
 }
 
-char editorReadKey() {
+int editorReadKey() {
   int nread;
   char key;
 
   while ((nread = read(STDIN_FILENO, &key, 1)) != 1) {
     if (nread == -1 && errno != EAGAIN) die("read");
   }
-  return key;
+  
+  if (key == '\x1b') {
+    char seq[3];
+
+    if (read(STDIN_FILENO, &seq[0], 1) != 1) return '\x1b';
+    if (read(STDIN_FILENO, &seq[1], 1) != 1) return '\x1b';
+
+    if (seq[0] == '[') {
+      if (seq[1] >= '0' && seq[1] <= '9') {
+        if (read(STDIN_FILENO, &seq[2], 1) != 1) return '\x1b';
+        if (seq[2] == '~') {
+          switch (seq[1]) {
+            case '1': return HOME_KEY;
+            case '4': return END_KEY;
+            case '5': return PAGE_UP;
+            case '6': return PAGE_DOWN;
+            case '7': return HOME_KEY;
+            case '8': return END_KEY;
+          }
+        }
+      } else {
+        switch (seq[1]) {
+          case 'A': return ARROW_UP;
+          case 'B': return ARROW_DOWN;
+          case 'C': return ARROW_RIGHT;
+          case 'D': return ARROW_LEFT;
+          case 'H': return HOME_KEY;
+          case 'F': return END_KEY;
+        }
+      }
+    } else if (seq[0] == 'O') {
+      switch (seq[1]) {
+        case 'H': return HOME_KEY;
+        case 'F': return END_KEY;
+      }
+    }
+
+    return '\x1b';
+  } else {
+    return key;
+  }
 }
 
 /**
@@ -180,27 +231,34 @@ void editorRefreshScreen() {
 
 /*** input ***/
 
-void editorMoveCursor(char key) {
-  switch (key)
-  {
-  // WASD Keys
-  case 'a':
-    _editorConfig.cx--;
-    break;
-  case 'd':
-    _editorConfig.cx++;
-    break;
-  case 'w':
-    _editorConfig.cy--;
-    break;
-  case 's':
-    _editorConfig.cy++;
-    break;
+void editorMoveCursor(int key) {
+  switch (key) {
+    // WASD Keys
+    case ARROW_LEFT:
+      if (_editorConfig.cx != 0) {
+        _editorConfig.cx--;
+      }
+      break;
+    case ARROW_RIGHT:
+      if (_editorConfig.cx != _editorConfig.screencols - 1) {
+        _editorConfig.cx++;
+      }
+      break;
+    case ARROW_UP:
+      if (_editorConfig.cy != 0) {
+        _editorConfig.cy--;
+      }
+      break;
+    case ARROW_DOWN:
+      if (_editorConfig.cy != _editorConfig.screenrows - 1) {
+        _editorConfig.cy++;
+      }
+      break;
   }
 }
 
 void editorProcessKeypress() {
-  char KEY_IN = editorReadKey();
+  int KEY_IN = editorReadKey();
 
   switch (KEY_IN) {
     case CTRL_KEY('q'):
@@ -208,11 +266,27 @@ void editorProcessKeypress() {
       write(STDOUT_FILENO, "\x1b[H", 3);
       exit(0);
       break;
+
+    case HOME_KEY:
+      _editorConfig.cx = 0;
+      break;
+
+    case END_KEY:
+      _editorConfig.cx = _editorConfig.screencols - 1;
+      break;
+
+    case PAGE_UP:
+    case PAGE_DOWN: 
+      {
+        int times = _editorConfig.screenrows;
+        while (times--) editorMoveCursor(KEY_IN == PAGE_UP ? ARROW_UP : ARROW_DOWN);
+      }
+      break;
     
-    case 'w':
-    case 's':
-    case 'a':
-    case 'd':
+    case ARROW_UP:
+    case ARROW_DOWN:
+    case ARROW_LEFT:
+    case ARROW_RIGHT:
       editorMoveCursor(KEY_IN);
       break;
   }
