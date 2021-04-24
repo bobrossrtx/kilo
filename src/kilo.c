@@ -18,8 +18,12 @@
 /*** data ***/
 
 struct editorConfig {
+  // Cursor positions
+  int cx, cy;
+
   int screenrows;
   int screencols;
+
   // Original terminal attributes
   struct termios orig_termios;
 };
@@ -163,7 +167,10 @@ void editorRefreshScreen() {
 
   editorDrawRows(&ab);
 
-  abAppend(&ab, "\x1b[H", 3);
+  char buf[32];
+  snprintf(buf, sizeof(buf), "\x1b[%d;%dH", _editorConfig.cy + 1, _editorConfig.cx + 1);
+  abAppend(&ab, buf, strlen(buf));
+
   abAppend(&ab, "\x1b[?25h", 6);
 
   write(STDOUT_FILENO, ab.b, ab.len);
@@ -172,6 +179,25 @@ void editorRefreshScreen() {
 
 
 /*** input ***/
+
+void editorMoveCursor(char key) {
+  switch (key)
+  {
+  // WASD Keys
+  case 'a':
+    _editorConfig.cx--;
+    break;
+  case 'd':
+    _editorConfig.cx++;
+    break;
+  case 'w':
+    _editorConfig.cy--;
+    break;
+  case 's':
+    _editorConfig.cy++;
+    break;
+  }
+}
 
 void editorProcessKeypress() {
   char KEY_IN = editorReadKey();
@@ -182,6 +208,13 @@ void editorProcessKeypress() {
       write(STDOUT_FILENO, "\x1b[H", 3);
       exit(0);
       break;
+    
+    case 'w':
+    case 's':
+    case 'a':
+    case 'd':
+      editorMoveCursor(KEY_IN);
+      break;
   }
 }
 
@@ -189,6 +222,9 @@ void editorProcessKeypress() {
 /*** init ***/
 
 void initEditor() {
+  _editorConfig.cx = 0;
+  _editorConfig.cy = 0;
+
   if (getWindowSize(&_editorConfig.screenrows, &_editorConfig.screencols) == -2)
     die("getWindowSize");
 }
