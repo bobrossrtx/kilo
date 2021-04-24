@@ -1,5 +1,14 @@
+# Output Dirs
 debug/
 build/
 release/
 
+# tests
+*-testing/
+
+# Scripts
+scripts/
+*.py
+
+# Binaries
 kilo
