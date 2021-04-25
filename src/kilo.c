@@ -1,11 +1,15 @@
 /*** includes ***/
 
+#define _DEFAULT_SOURCE
+#define _GNU_SOURCE
+
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -19,6 +23,7 @@ enum editorKey {
   ARROW_RIGHT,
   ARROW_UP,
   ARROW_DOWN,
+  DEL_KEY,
   HOME_KEY,
   END_KEY,
   PAGE_UP,
@@ -28,12 +33,21 @@ enum editorKey {
 
 /*** data ***/
 
+typedef struct erow {
+  int size;
+  char *chars;
+} erow; // "Editor row"
+
 struct editorConfig {
   // Cursor positions
   int cx, cy;
 
   int screenrows;
   int screencols;
+
+  // Text rows
+  int numrows;
+  erow *row;
 
   // Original terminal attributes
   struct termios orig_termios;
@@ -93,6 +107,7 @@ int editorReadKey() {
         if (seq[2] == '~') {
           switch (seq[1]) {
             case '1': return HOME_KEY;
+            case '3': return DEL_KEY;
             case '4': return END_KEY;
             case '5': return PAGE_UP;
             case '6': return PAGE_DOWN;
@@ -160,6 +175,41 @@ int getWindowSize(int *rows, int *cols) {
 }
 
 
+/*** row operations ***/
+
+void editorAppendRow(char *line, size_t len) {
+  _editorConfig.row = realloc(_editorConfig.row, sizeof(erow) * (_editorConfig.numrows + 1));
+  
+  int at = _editorConfig.numrows;
+  _editorConfig.row[at].size = len;
+  _editorConfig.row[at].chars = malloc(len + 1);
+  memcpy(_editorConfig.row[at].chars, line, len);
+  _editorConfig.row[at].chars[len] = '\0';
+  _editorConfig.numrows++;
+}
+
+
+/*** file i/o ***/
+
+void editorOpen(char *filename) {
+  FILE *fp = fopen(filename, "r");
+  if (!fp) die("fopen");
+
+  char *line = NULL;
+  size_t linecap = 0;
+  ssize_t linelen;
+  linelen = getline(&line, &linecap, fp);
+
+  if (linelen != -1) {
+    while (linelen > 0 && (line[linelen - 1] == '\n' ||
+      line[linelen - 1] == '\r')) linelen--;
+    editorAppendRow(line, linelen);
+  }
+  free(line);
+  fclose(fp);  
+}
+
+
 /*** append buffer ***/
 
 struct abuf {
@@ -187,20 +237,26 @@ void abFree(struct abuf *ab) {
 
 void editorDrawRows(struct abuf *ab) {
   for (int y = 0; y < _editorConfig.screenrows; y++) {
-    if (y == _editorConfig.screenrows / 3) {
-      char welcome[80];
-      int welcomelen = snprintf(welcome, sizeof(welcome), 
-        "Kilo editor -- version %s", KILO_VERSION);
-      if (welcomelen > _editorConfig.screencols) welcomelen = _editorConfig.screencols;
-      int padding = (_editorConfig.screencols - welcomelen) / 2;
-      if (padding) {
+    if (y >= _editorConfig.numrows) {
+      if (_editorConfig.numrows == 0 && y == _editorConfig.screenrows / 3) {
+        char welcome[80];
+        int welcomelen = snprintf(welcome, sizeof(welcome), 
+          "Kilo editor -- version %s", KILO_VERSION);
+        if (welcomelen > _editorConfig.screencols) welcomelen = _editorConfig.screencols;
+        int padding = (_editorConfig.screencols - welcomelen) / 2;
+        if (padding) {
+          abAppend(ab, "~", 1);
+          padding--;
+        }
+        while (padding--) abAppend(ab, " ", 1);
+        abAppend(ab, welcome, welcomelen);
+      } else {
         abAppend(ab, "~", 1);
-        padding--;
       }
-      while (padding--) abAppend(ab, " ", 1);
-      abAppend(ab, welcome, welcomelen);
     } else {
-      abAppend(ab, "~", 1);
+      int len = _editorConfig.row[y].size;
+      if (len > _editorConfig.screencols) len = _editorConfig.screencols;
+      abAppend(ab, _editorConfig.row[y].chars, len);
     }
 
     abAppend(ab, "\x1b[K", 4);
@@ -298,14 +354,19 @@ void editorProcessKeypress() {
 void initEditor() {
   _editorConfig.cx = 0;
   _editorConfig.cy = 0;
+  _editorConfig.numrows = 0;
+  _editorConfig.row = NULL;
 
   if (getWindowSize(&_editorConfig.screenrows, &_editorConfig.screencols) == -2)
     die("getWindowSize");
 }
 
-int main() {
+int main(int argc, char *argv[]) {
   enableRawMode();
   initEditor();
+  if (argc >= 2) {
+    editorOpen(argv[1]);
+  }
 
   while (1) {
     editorRefreshScreen();
