@@ -5,6 +5,7 @@ release/
 
 # tests
 *-testing/
+testing/
 
 # Scripts
 scripts/
@@ -12,3 +13,6 @@ scripts/
 
 # Binaries
 kilo
+
+# vscode
+.vscode/
