@@ -43,9 +43,11 @@ struct editorConfig {
   // Cursor positions
   int cx, cy;
 
-  // Row offset
+  // Offsets
   int rowoff;
+  int coloff;
 
+  // Screen measurements
   int screenrows;
   int screencols;
   
@@ -246,12 +248,15 @@ void abFree(struct abuf *ab) {
 /*** output ***/
  
 void editorScroll() {
-  if (_editorConfig.cy < _editorConfig.rowoff) {
+  if (_editorConfig.cy < _editorConfig.rowoff)
     _editorConfig.rowoff = _editorConfig.cy;
-  }
-  if (_editorConfig.cy >= _editorConfig.rowoff + _editorConfig.screenrows) {
+  if (_editorConfig.cy >= _editorConfig.rowoff + _editorConfig.screenrows)
     _editorConfig.rowoff = _editorConfig.cy - _editorConfig.screenrows + 1;
-  }
+  if (_editorConfig.cx < _editorConfig.coloff)
+    _editorConfig.coloff = _editorConfig.cx;
+  if (_editorConfig.cx >= _editorConfig.coloff + _editorConfig.screencols)
+    _editorConfig.coloff = _editorConfig.cx - _editorConfig.screencols + 1;
+
 }
  
 void editorDrawRows(struct abuf *ab) {
@@ -274,9 +279,10 @@ void editorDrawRows(struct abuf *ab) {
         abAppend(ab, "~", 1);
       }
     } else {
-      int len = _editorConfig.row[filerow].size;
+      int len = _editorConfig.row[filerow].size - _editorConfig.coloff;
+      if (len < 0) len = 0;
       if (len > _editorConfig.screencols) len = _editorConfig.screencols;
-      abAppend(ab, _editorConfig.row[filerow].chars, len);
+      abAppend(ab, &_editorConfig.row[filerow].chars[_editorConfig.coloff], len);
     }
  
     abAppend(ab, "\x1b[K", 3);
@@ -297,7 +303,8 @@ void editorRefreshScreen() {
   editorDrawRows(&ab);
  
   char buf[32];
-  snprintf(buf, sizeof(buf), "\x1b[%d;%dH", _editorConfig.cy + 1, _editorConfig.cx + 1);
+  snprintf(buf, sizeof(buf), "\x1b[%d;%dH", (_editorConfig.cy - _editorConfig.rowoff) + 1,
+                                            (_editorConfig.cx - _editorConfig.coloff) + 1);
   abAppend(&ab, buf, strlen(buf));
  
   abAppend(&ab, "\x1b[?25h", 6);
@@ -310,34 +317,44 @@ void editorRefreshScreen() {
 /*** input ***/
  
 void editorMoveCursor(int key) {
+  erow *row = (_editorConfig.cy >= _editorConfig.numrows) 
+    ? NULL : &_editorConfig.row[_editorConfig.cy];
+
   switch (key) {
     case ARROW_LEFT:
-      if (_editorConfig.cx != 0) {
-        _editorConfig.cx--;
+      if (_editorConfig.cx != 0) _editorConfig.cx--;
+      else if (_editorConfig.cy > 0) {
+        _editorConfig.cy--;
+        _editorConfig.cx = _editorConfig.row[_editorConfig.cy].size;
       }
       break;
     case ARROW_RIGHT:
-      if (_editorConfig.cx != _editorConfig.screencols - 1) {
-        _editorConfig.cx++;
+      if (row && _editorConfig.cx < row->size) _editorConfig.cx++;
+      else if (row && _editorConfig.cx == row->size) {
+        _editorConfig.cy++;
+        _editorConfig.cx = 0;
       }
       break;
     case ARROW_UP:
-      if (_editorConfig.cy != 0) {
-        _editorConfig.cy--;
-      }
+      if (_editorConfig.cy != 0) _editorConfig.cy--;
       break;
     case ARROW_DOWN:
-      if (_editorConfig.cy < _editorConfig.numrows) {
-        _editorConfig.cy++;
-      }
+      if (_editorConfig.cy < _editorConfig.numrows) _editorConfig.cy++;
       break;
   }
+
+  row = (_editorConfig.cy >= _editorConfig.numrows)
+    ? NULL : &_editorConfig.row[_editorConfig.cy]; // Setting row again just since _edi--.cy could point to a new line
+  int rowlen = row ? row->size : 0;
+  if (_editorConfig.cx > rowlen) _editorConfig.cx = rowlen;
 }
  
 void editorProcessKeypress() {
-  int c = editorReadKey();
+  int key = editorReadKey();
+  erow *row = (_editorConfig.cy >= _editorConfig.numrows) 
+    ? NULL : &_editorConfig.row[_editorConfig.cy];
  
-  switch (c) {
+  switch (key) {
     case CTRL_KEY('q'):
       write(STDOUT_FILENO, "\x1b[2J", 4);
       write(STDOUT_FILENO, "\x1b[H", 3);
@@ -349,7 +366,7 @@ void editorProcessKeypress() {
       break;
  
     case END_KEY:
-      _editorConfig.cx = _editorConfig.screencols - 1;
+      if (row && _editorConfig.cx < row->size) _editorConfig.cx = row->size;
       break;
  
     case PAGE_UP:
@@ -357,7 +374,7 @@ void editorProcessKeypress() {
       {
         int times = _editorConfig.screenrows;
         while (times--)
-          editorMoveCursor(c == PAGE_UP ? ARROW_UP : ARROW_DOWN);
+          editorMoveCursor(key == PAGE_UP ? ARROW_UP : ARROW_DOWN);
       }
       break;
  
@@ -365,7 +382,7 @@ void editorProcessKeypress() {
     case ARROW_DOWN:
     case ARROW_LEFT:
     case ARROW_RIGHT:
-      editorMoveCursor(c);
+      editorMoveCursor(key);
       break;
   }
 }
@@ -377,10 +394,12 @@ void initEditor() {
   _editorConfig.cx = 0;
   _editorConfig.cy = 0;
   _editorConfig.rowoff = 0;
+  _editorConfig.coloff = 0;
   _editorConfig.numrows = 0;
   _editorConfig.row = NULL;
  
-  if (getWindowSize(&_editorConfig.screenrows, &_editorConfig.screencols) == -1) die("getWindowSize");
+  if (getWindowSize(&_editorConfig.screenrows, &_editorConfig.screencols) == -1)
+    die("getWindowSize");
 }
  
 int main(int argc, char *argv[]) {
