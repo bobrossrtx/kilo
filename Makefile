@@ -1,7 +1,7 @@
 srcDir = src
 # testDir = testing
 
-all: build
+all: clean build
 
 build: $(srcDir)/kilo.c
 	$(CC) $(srcDir)/kilo.c -o kilo -Wall -Wextra -pedantic -std=c99
@@ -10,4 +10,4 @@ build: $(srcDir)/kilo.c
 # 	$(CC) src/test/kilo.scoll.c -o $(testDir)/kilo -Wall -Wextra -pedantic -std=c99
 
 clean:
-	rm kilo
+	test -f kilo && rm kilo || echo kilo binary does not exist
