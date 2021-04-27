@@ -15,7 +15,6 @@ RUN apt update
 RUN apt install -y make gcc
 
 # Making executable
-RUN make clean
 RUN make all
 
 CMD ["export" "PATH=$PATH:/kilo"]
