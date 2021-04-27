@@ -12,5 +12,5 @@ You should be able to compile straight from there, but just in case, you might n
 
 From then on, you can easily install Kilo. What you have to do is type ```make all``` into your terminal and it will remove any already existing binaries, and replace them with the updated ones.
 
-#### Use
+### Use
 ... Under Construction ...
