@@ -1,9 +1,9 @@
 srcDir = src
 # testDir = testing
 
-all: kilo
+all: build
 
-kilo: $(srcDir)/kilo.c
+build: $(srcDir)/kilo.c
 	$(CC) $(srcDir)/kilo.c -o kilo -Wall -Wextra -pedantic -std=c99
 
 # kiloScrollTest: src/test/kilo.scroll.test.c
