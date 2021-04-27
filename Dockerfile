@@ -12,7 +12,7 @@ COPY ./* /kilo
 
 # Installs
 RUN apt update
-RUN apt install make gcc
+RUN apt install -y make gcc
 
 # Making executable
 RUN make clean
