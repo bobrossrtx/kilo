@@ -14,7 +14,7 @@ COPY ./* /kilo
 RUN apt update
 RUN apt install -y make gcc
 
+# Setting path
+RUN export PATH=$PATH:/kilo
 # Making executable
-RUN make
-
-CMD ["export" "PATH=$PATH:/kilo"]
+CMD [ "make" ]
