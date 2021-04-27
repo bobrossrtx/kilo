@@ -12,7 +12,6 @@ COPY ./* /kilo
 
 # Installs
 RUN apt update
-RUN apt upgrade
 RUN apt install make cc
 
 # Making executable
