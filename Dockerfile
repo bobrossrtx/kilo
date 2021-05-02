@@ -1,6 +1,6 @@
 # Repo: https://hub.docker.com/repository/docker/owenboreham/kilo/
 
-FROM ubuntu:20.10
+FROM ubuntu:devel
 
 LABEL author="Bobrossrtx"
 LABEL version="0.0.1"
