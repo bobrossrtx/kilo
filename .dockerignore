@@ -1,3 +1,23 @@
+# Output Dirs
+debug/
+build/
+release/
+obj/
+bin/
+
+# tests
+*-testing/
+testing/
+
+# Scripts
+scripts/
+*.py
+
+# Binaries
+bin/kilo
 kilo
-.vscode
-scripts
+
+# IDE
+.vscode/
+.c9
+.idea
