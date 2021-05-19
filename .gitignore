@@ -14,5 +14,7 @@ scripts/
 # Binaries
 kilo
 
-# vscode
+# IDE
 .vscode/
+.c9
+.idea
