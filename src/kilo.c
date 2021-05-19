@@ -14,36 +14,6 @@
 #include <unistd.h>
 
 
-// /*** config ***/
-
-// struct config {
-//   int tabstop;
-
-//   int bytes;
-// };
-
-// struct config _config;
-
-// int readConfigInt(char *configLine) {
-//   char confName[32];
-//   int val;
-//   sscanf(configLine, "%s %d\n", confName, &val);
-//   return val;
-// }
-
-// void setTabStop(char* configFile) {
-//   FILE *cfg;
-//   char buf[32];
-//   if ((cfg=fopen(configFile, 'r')) == NULL)
-//     die("Failed to read config file");
-//   while (!feof(cfg)) {
-//     fgets(buf, 32, cfg);
-//     if (buf[0] == "#") continue;
-//     if (strstr(buf, "TABSTOP=")) _config.tabstop = readConfigInt(buf);
-//   }
-// }
-
-
 /*** defines ***/
 
 #define KILO_VERSION "0.0.1"
