@@ -8,6 +8,7 @@ bin/
 # tests
 *-testing/
 testing/
+test/
 
 # Scripts
 scripts/
