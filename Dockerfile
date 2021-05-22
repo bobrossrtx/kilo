@@ -13,11 +13,9 @@ WORKDIR /kilo
 COPY . /kilo
 
 # Installs
-RUN apt update
-RUN apt install -y make gcc 
-
-# Just incase use editing stuff
-RUN apt install -y vim nano
+RUN apt-get update
+RUN apt-get upgrade
+RUN apt-get install -y make gcc vim nano 
 
 # Making new executable just in case old one is corrupt
 RUN make all
