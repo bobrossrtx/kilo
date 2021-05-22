@@ -4,6 +4,10 @@ FROM ubuntu:devel
 WORKDIR /kilo/
 COPY . /kilo/
 
+# Configure London timezone
+ENV TZ=Europe/London
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
 # Installs
 RUN apt-get -y update \
     && apt-get -y upgrade \
@@ -28,5 +32,3 @@ LABEL description="Kilo is a nano like command line text editor.\
 Running kilo without any command line arguments causes kilo to\
 open a plain document. You can edit any kind of document with\
 kilo just like its predecessors, [ Vim, Emac, Nano ]"
-
-CMD kilo /kilo/examples/helloworld.example.txt
