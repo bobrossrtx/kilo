@@ -1,6 +1,6 @@
 # Repo: https://hub.docker.com/repository/docker/owenboreham/kilo/
 
-FROM ubuntu:devel
+FROM ubuntu:25.04
 WORKDIR /kilo/
 COPY . /kilo/
 
